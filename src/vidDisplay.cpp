@@ -26,6 +26,9 @@
  *   'y' - toggle Sobel Y (horizontal edges)
  *   'm' - toggle gradient magnitude (all edges)
  *   'l' - toggle blur+quantize (cartoon effect)
+ *   'i' - toggle emboss effect (3D relief)
+ *   'n' - toggle negative/invert effect
+ *   'v' - toggle vignette effect
  *   'f' - toggle face detection
  *
  * argc: number of command-line arguments (unused)
@@ -54,6 +57,7 @@ int main(int argc, char *argv[]) {
     // Track current display mode
     // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia, 'b' = blur
     // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude, 'l' = blur+quantize
+    // 'i' = emboss, 'n' = negative, 'v' = vignette
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
     bool faceDetectEnabled = false;  // Track if face detection is active
@@ -105,6 +109,15 @@ int main(int argc, char *argv[]) {
             }
             case 'l':  // Blur and quantize (cartoon effect)
                 blurQuantize(frame, displayFrame, 10);  // 10 levels per channel
+                break;
+            case 'i':  // Emboss effect
+                emboss(frame, displayFrame);
+                break;
+            case 'n':  // Negative/invert effect
+                negative(frame, displayFrame);
+                break;
+            case 'v':  // Vignette effect
+                vignette(frame, displayFrame, 0.5f, 0.5f);  // 50% strength, 50% radius
                 break;
             default:   // Color (no effect)
                 displayFrame = frame.clone();
@@ -170,6 +183,18 @@ int main(int argc, char *argv[]) {
             // Toggle blur and quantize
             displayMode = (displayMode == 'l') ? 'c' : 'l';
             std::cout << "Mode: " << (displayMode == 'l' ? "Blur + Quantize (cartoon)" : "Color") << std::endl;
+        } else if (key == 'i') {
+            // Toggle emboss
+            displayMode = (displayMode == 'i') ? 'c' : 'i';
+            std::cout << "Mode: " << (displayMode == 'i' ? "Emboss (3D relief)" : "Color") << std::endl;
+        } else if (key == 'n') {
+            // Toggle negative
+            displayMode = (displayMode == 'n') ? 'c' : 'n';
+            std::cout << "Mode: " << (displayMode == 'n' ? "Negative/Invert" : "Color") << std::endl;
+        } else if (key == 'v') {
+            // Toggle vignette
+            displayMode = (displayMode == 'v') ? 'c' : 'v';
+            std::cout << "Mode: " << (displayMode == 'v' ? "Vignette" : "Color") << std::endl;
         } else if (key == 'f') {
             // Toggle face detection
             faceDetectEnabled = !faceDetectEnabled;

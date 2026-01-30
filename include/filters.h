@@ -128,4 +128,87 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
  */
 int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
 
+/*
+ * Applies a depth-based fog effect using depth map information.
+ *
+ * Creates atmospheric fog that increases with distance from the camera.
+ * Uses exponential fog model: fog_amount = 1 - exp(-depth * density)
+ *
+ * The fog blends the original color with a fog color based on depth:
+ *   final_color = original_color * (1 - fog) + fog_color * fog
+ *
+ * src: input color image (CV_8UC3)
+ * depth: depth map (CV_8UC1, greyscale where brighter = farther)
+ * dst: output image with fog applied (CV_8UC3)
+ * density: fog density parameter (typical: 0.003 - 0.01)
+ * fogColor: color of the fog (default: light grey/white)
+ * returns: 0 on success
+ */
+int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
+                   float density = 0.005,
+                   cv::Scalar fogColor = cv::Scalar(200, 200, 200));
+
+/*
+ * Applies an emboss effect to create a 3D raised surface appearance.
+ *
+ * Uses a directional gradient kernel that emphasizes edges in one direction
+ * while suppressing the opposite direction. This creates the illusion of
+ * light coming from one corner, making the image appear raised/stamped.
+ *
+ * The kernel used is:
+ *   [-2 -1  0]
+ *   [-1  1  1]
+ *   [ 0  1  2]
+ *
+ * A constant value (128) is added to center the result, since emboss
+ * produces both positive and negative values. The result appears as
+ * a grayscale relief map with highlights and shadows.
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output embossed image (CV_8UC3)
+ * returns: 0 on success
+ */
+int emboss(cv::Mat &src, cv::Mat &dst);
+
+/*
+ * Inverts all color values to create a negative image effect.
+ *
+ * For each channel: new_value = 255 - old_value
+ *
+ * This creates an artistic "film negative" effect where:
+ *   - Dark areas become bright
+ *   - Bright areas become dark
+ *   - Colors become complementary (red ↔ cyan, green ↔ magenta, blue ↔ yellow)
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output inverted image (CV_8UC3)
+ * returns: 0 on success
+ */
+int negative(cv::Mat &src, cv::Mat &dst);
+
+/*
+ * Applies a vignette effect that darkens the edges and corners of the image.
+ *
+ * Creates a professional photographic effect where the center remains bright
+ * and the image gradually darkens toward the edges. This draws the viewer's
+ * attention to the center of the frame.
+ *
+ * Algorithm:
+ *   1. Calculate distance of each pixel from image center
+ *   2. Normalize distance to [0, 1] range
+ *   3. Apply darkening factor based on distance
+ *   4. Blend darkened pixel with original
+ *
+ * The effect is controlled by:
+ *   - strength: how dark the edges become (0.0 - 1.0)
+ *   - radius: how far from center the darkening starts (0.0 - 1.0)
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output vignetted image (CV_8UC3)
+ * strength: vignette intensity (default: 0.5)
+ * radius: inner radius before darkening begins (default: 0.5)
+ * returns: 0 on success
+ */
+int vignette(cv::Mat &src, cv::Mat &dst, float strength = 0.5, float radius = 0.5);
+
 #endif

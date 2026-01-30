@@ -37,7 +37,7 @@ face: faceDetect.o filters.o
 imod: imgDisplay.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
-depth: depthDemo.o filters.o
+depthDemo: depthDemo.o filters.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 blurTiming: blurTiming.o filters.o

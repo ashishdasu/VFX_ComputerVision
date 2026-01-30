@@ -572,3 +572,278 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels) {
 
     return 0;
 }
+
+/*
+ * Applies depth-based fog effect to create atmospheric depth.
+ *
+ * This function simulates fog in a scene using depth information from a depth map.
+ * Objects farther from the camera (brighter in depth map) get more fog applied.
+ *
+ * The fog model uses exponential decay (physically accurate):
+ *   fog_amount = 1 - exp(-depth_normalized * density)
+ *
+ * Where:
+ *   depth_normalized = depth_value / 255.0  (normalize to [0, 1])
+ *   density = how quickly fog accumulates (higher = denser fog)
+ *
+ * Final color blending:
+ *   result = original * (1 - fog_amount) + fog_color * fog_amount
+ *
+ * Example with density=0.005:
+ *   Close object (depth=50):  fog_amount = 1 - exp(-0.196 * 0.005) ≈ 0.001 (almost no fog)
+ *   Far object (depth=255):   fog_amount = 1 - exp(-1.0 * 0.005) ≈ 0.005 (some fog)
+ *
+ * Note: This implementation uses a simplified linear model for computational efficiency:
+ *   fog_amount = depth_normalized * density_factor
+ *
+ * src: input color image (CV_8UC3)
+ * depth: depth map (CV_8UC1, brighter = farther)
+ * dst: output image with fog (CV_8UC3)
+ * density: fog density parameter (0.003-0.01 typical)
+ * fogColor: color of the fog (B, G, R)
+ * returns: 0 on success
+ */
+int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
+                   float density, cv::Scalar fogColor) {
+    // Create output image
+    dst.create(src.size(), src.type());
+
+    // Convert depth to same size as src if needed
+    cv::Mat depthResized;
+    if (depth.size() != src.size()) {
+        cv::resize(depth, depthResized, src.size());
+    } else {
+        depthResized = depth;
+    }
+
+    // Process each pixel
+    for (int i = 0; i < src.rows; i++) {
+        const cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i);
+        const uchar *depthRow = depthResized.ptr<uchar>(i);
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+        for (int j = 0; j < src.cols; j++) {
+            // Get depth value [0-255] and normalize to [0-1]
+            float depthNorm = depthRow[j] / 255.0f;
+
+            // Calculate fog amount using exponential model
+            // fog = 1 - exp(-depth * density)
+            // Simplified linear model for efficiency: fog = depth * density_factor
+            float fogAmount = depthNorm * density * 100.0f;  // Scale for visibility
+            if (fogAmount > 1.0f) fogAmount = 1.0f;  // Clamp to [0, 1]
+
+            // Blend original color with fog color
+            // result = original * (1 - fog) + fog_color * fog
+            for (int c = 0; c < 3; c++) {
+                float originalColor = srcRow[j][c];
+                float fog = fogColor[c];
+                float blended = originalColor * (1.0f - fogAmount) + fog * fogAmount;
+
+                dstRow[j][c] = cv::saturate_cast<uchar>(blended);
+            }
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Applies an emboss effect to create a 3D raised surface appearance.
+ *
+ * Emboss works by applying a directional gradient kernel that emphasizes
+ * changes in brightness. The kernel has positive weights on one side and
+ * negative on the other, simulating light coming from a specific direction
+ * (typically upper-left).
+ *
+ * Kernel used:
+ *   [-2 -1  0]
+ *   [-1  1  1]
+ *   [ 0  1  2]
+ *
+ * This kernel:
+ *   - Highlights edges where brightness increases from upper-left to lower-right
+ *   - Shadows edges where brightness decreases
+ *   - Produces near-zero values for flat regions
+ *
+ * Since the result can be negative, we add 128 to center it around middle gray.
+ * Areas with no edge become gray (128), raised edges become brighter, and
+ * recessed edges become darker, creating a 3D relief effect.
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output embossed image (CV_8UC3)
+ * returns: 0 on success
+ */
+int emboss(cv::Mat &src, cv::Mat &dst) {
+    // Create output image
+    dst.create(src.size(), src.type());
+
+    // Emboss kernel (3x3)
+    int kernel[3][3] = {
+        {-2, -1,  0},
+        {-1,  1,  1},
+        { 0,  1,  2}
+    };
+
+    // Process pixels (skip 1-pixel border)
+    for (int i = 1; i < src.rows - 1; i++) {
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+        for (int j = 1; j < src.cols - 1; j++) {
+            // Accumulate weighted pixel values for each channel
+            int sumB = 0, sumG = 0, sumR = 0;
+
+            // Apply 3x3 kernel
+            for (int ki = -1; ki <= 1; ki++) {
+                cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i + ki);
+                for (int kj = -1; kj <= 1; kj++) {
+                    int weight = kernel[ki + 1][kj + 1];
+                    sumB += srcRow[j + kj][0] * weight;
+                    sumG += srcRow[j + kj][1] * weight;
+                    sumR += srcRow[j + kj][2] * weight;
+                }
+            }
+
+            // Add 128 to center around middle gray (since emboss produces negative values)
+            // This makes flat areas gray, raised edges brighter, recessed edges darker
+            dstRow[j][0] = cv::saturate_cast<uchar>(sumB + 128);
+            dstRow[j][1] = cv::saturate_cast<uchar>(sumG + 128);
+            dstRow[j][2] = cv::saturate_cast<uchar>(sumR + 128);
+        }
+    }
+
+    // Handle borders (set to middle gray)
+    for (int i = 0; i < src.rows; i++) {
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+        if (i == 0 || i == src.rows - 1) {
+            // Top and bottom rows
+            for (int j = 0; j < src.cols; j++) {
+                dstRow[j][0] = dstRow[j][1] = dstRow[j][2] = 128;
+            }
+        } else {
+            // Left and right edges
+            dstRow[0][0] = dstRow[0][1] = dstRow[0][2] = 128;
+            dstRow[src.cols-1][0] = dstRow[src.cols-1][1] = dstRow[src.cols-1][2] = 128;
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Inverts all color values to create a negative image effect.
+ *
+ * For each color channel, the new value is: 255 - old_value
+ *
+ * This creates a "film negative" appearance where:
+ *   - Black (0) becomes white (255)
+ *   - White (255) becomes black (0)
+ *   - Red (255,0,0) becomes cyan (0,255,255)
+ *   - Green (0,255,0) becomes magenta (255,0,255)
+ *   - Blue (0,0,255) becomes yellow (255,255,0)
+ *
+ * Essentially, each color is replaced with its complementary color on
+ * the color wheel. This produces an artistic, surreal effect.
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output inverted image (CV_8UC3)
+ * returns: 0 on success
+ */
+int negative(cv::Mat &src, cv::Mat &dst) {
+    // Create output image
+    dst.create(src.size(), src.type());
+
+    // Process each pixel
+    for (int i = 0; i < src.rows; i++) {
+        const cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i);
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+        for (int j = 0; j < src.cols; j++) {
+            // Invert each channel: new = 255 - old
+            dstRow[j][0] = 255 - srcRow[j][0];  // Blue
+            dstRow[j][1] = 255 - srcRow[j][1];  // Green
+            dstRow[j][2] = 255 - srcRow[j][2];  // Red
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * Applies a vignette effect that darkens the edges of the image.
+ *
+ * A vignette is a photographic effect where the image brightness decreases
+ * toward the edges and corners, drawing attention to the center. This is
+ * commonly used in portrait photography and cinematic video.
+ *
+ * Algorithm:
+ *   1. Calculate distance of each pixel from image center
+ *   2. Normalize distance based on image diagonal
+ *   3. Create darkening factor based on distance
+ *   4. Apply darkening to pixel (multiply by factor)
+ *
+ * Parameters control the effect:
+ *   - radius: how far from center before darkening starts (0.0 - 1.0)
+ *     - 0.0 = darken from center outward
+ *     - 0.5 = darken outer half (default)
+ *     - 1.0 = no darkening (full brightness)
+ *
+ *   - strength: how dark the edges become (0.0 - 1.0)
+ *     - 0.0 = no darkening
+ *     - 0.5 = moderate darkening (default)
+ *     - 1.0 = maximum darkening (black edges)
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output vignetted image (CV_8UC3)
+ * strength: vignette intensity
+ * radius: inner radius before darkening
+ * returns: 0 on success
+ */
+int vignette(cv::Mat &src, cv::Mat &dst, float strength, float radius) {
+    // Create output image
+    dst.create(src.size(), src.type());
+
+    // Calculate image center
+    float centerX = src.cols / 2.0f;
+    float centerY = src.rows / 2.0f;
+
+    // Maximum distance from center (half diagonal)
+    // Used to normalize distance values to [0, 1]
+    float maxDist = sqrt(centerX * centerX + centerY * centerY);
+
+    // Process each pixel
+    for (int i = 0; i < src.rows; i++) {
+        const cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i);
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+        for (int j = 0; j < src.cols; j++) {
+            // Calculate distance from center
+            float dx = j - centerX;
+            float dy = i - centerY;
+            float dist = sqrt(dx * dx + dy * dy);
+
+            // Normalize distance to [0, 1]
+            float distNorm = dist / maxDist;
+
+            // Calculate vignette factor
+            // If distance < radius, no darkening (factor = 1.0)
+            // If distance > radius, darken based on how far beyond radius
+            float vignetteFactor = 1.0f;
+            if (distNorm > radius) {
+                // How far past the radius (0.0 to 1.0)
+                float beyond = (distNorm - radius) / (1.0f - radius);
+
+                // Darkening amount increases with distance
+                // factor = 1.0 - (strength * beyond)
+                // At the very edge (beyond=1.0), factor = 1.0 - strength
+                vignetteFactor = 1.0f - (strength * beyond);
+            }
+
+            // Apply vignette by multiplying pixel values by factor
+            dstRow[j][0] = cv::saturate_cast<uchar>(srcRow[j][0] * vignetteFactor);
+            dstRow[j][1] = cv::saturate_cast<uchar>(srcRow[j][1] * vignetteFactor);
+            dstRow[j][2] = cv::saturate_cast<uchar>(srcRow[j][2] * vignetteFactor);
+        }
+    }
+
+    return 0;
+}
