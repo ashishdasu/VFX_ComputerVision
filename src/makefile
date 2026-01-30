@@ -40,5 +40,8 @@ imod: imgDisplay.o
 depth: depthDemo.o filters.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
+blurTiming: blurTiming.o filters.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
 clean:
 	rm -f *.o *~

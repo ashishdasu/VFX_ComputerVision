@@ -20,6 +20,10 @@
  *   'g' - toggle OpenCV greyscale mode
  *   'h' - toggle custom greyscale mode
  *   'e' - toggle sepia tone mode
+ *   'b' - toggle blur mode (5x5 Gaussian)
+ *   'x' - toggle Sobel X (vertical edges)
+ *   'y' - toggle Sobel Y (horizontal edges)
+ *   'm' - toggle gradient magnitude (all edges)
  *
  * argc: number of command-line arguments (unused)
  * argv: array of argument strings (unused)
@@ -45,7 +49,8 @@ int main(int argc, char *argv[]) {
     cv::Mat displayFrame;  // Frame after applying effects
 
     // Track current display mode
-    // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia
+    // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia, 'b' = blur
+    // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
 
@@ -70,6 +75,30 @@ int main(int argc, char *argv[]) {
             case 'e':  // Sepia tone
                 sepia(frame, displayFrame);
                 break;
+            case 'b':  // Blur (using optimized separable filter)
+                blur5x5_2(frame, displayFrame);
+                break;
+            case 'x': {  // Sobel X (vertical edges)
+                cv::Mat sobelResult;
+                sobelX3x3(frame, sobelResult);
+                // Convert from signed short to unsigned char for display
+                cv::convertScaleAbs(sobelResult, displayFrame);
+                break;
+            }
+            case 'y': {  // Sobel Y (horizontal edges)
+                cv::Mat sobelResult;
+                sobelY3x3(frame, sobelResult);
+                // Convert from signed short to unsigned char for display
+                cv::convertScaleAbs(sobelResult, displayFrame);
+                break;
+            }
+            case 'm': {  // Gradient magnitude (all edges)
+                cv::Mat sobelX, sobelY;
+                sobelX3x3(frame, sobelX);  // Compute X gradient
+                sobelY3x3(frame, sobelY);  // Compute Y gradient
+                magnitude(sobelX, sobelY, displayFrame);  // Combine into magnitude
+                break;
+            }
             default:   // Color (no effect)
                 displayFrame = frame.clone();
                 break;
@@ -100,6 +129,22 @@ int main(int argc, char *argv[]) {
             // Toggle sepia tone
             displayMode = (displayMode == 'e') ? 'c' : 'e';
             std::cout << "Mode: " << (displayMode == 'e' ? "Sepia Tone" : "Color") << std::endl;
+        } else if (key == 'b') {
+            // Toggle blur
+            displayMode = (displayMode == 'b') ? 'c' : 'b';
+            std::cout << "Mode: " << (displayMode == 'b' ? "Blur" : "Color") << std::endl;
+        } else if (key == 'x') {
+            // Toggle Sobel X
+            displayMode = (displayMode == 'x') ? 'c' : 'x';
+            std::cout << "Mode: " << (displayMode == 'x' ? "Sobel X (vertical edges)" : "Color") << std::endl;
+        } else if (key == 'y') {
+            // Toggle Sobel Y
+            displayMode = (displayMode == 'y') ? 'c' : 'y';
+            std::cout << "Mode: " << (displayMode == 'y' ? "Sobel Y (horizontal edges)" : "Color") << std::endl;
+        } else if (key == 'm') {
+            // Toggle gradient magnitude
+            displayMode = (displayMode == 'm') ? 'c' : 'm';
+            std::cout << "Mode: " << (displayMode == 'm' ? "Gradient Magnitude (all edges)" : "Color") << std::endl;
         }
     }
 
