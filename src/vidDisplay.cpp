@@ -24,6 +24,7 @@
  *   'x' - toggle Sobel X (vertical edges)
  *   'y' - toggle Sobel Y (horizontal edges)
  *   'm' - toggle gradient magnitude (all edges)
+ *   'l' - toggle blur+quantize (cartoon effect)
  *
  * argc: number of command-line arguments (unused)
  * argv: array of argument strings (unused)
@@ -50,7 +51,7 @@ int main(int argc, char *argv[]) {
 
     // Track current display mode
     // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia, 'b' = blur
-    // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude
+    // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude, 'l' = blur+quantize
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
 
@@ -99,6 +100,9 @@ int main(int argc, char *argv[]) {
                 magnitude(sobelX, sobelY, displayFrame);  // Combine into magnitude
                 break;
             }
+            case 'l':  // Blur and quantize (cartoon effect)
+                blurQuantize(frame, displayFrame, 10);  // 10 levels per channel
+                break;
             default:   // Color (no effect)
                 displayFrame = frame.clone();
                 break;
@@ -145,6 +149,10 @@ int main(int argc, char *argv[]) {
             // Toggle gradient magnitude
             displayMode = (displayMode == 'm') ? 'c' : 'm';
             std::cout << "Mode: " << (displayMode == 'm' ? "Gradient Magnitude (all edges)" : "Color") << std::endl;
+        } else if (key == 'l') {
+            // Toggle blur and quantize
+            displayMode = (displayMode == 'l') ? 'c' : 'l';
+            std::cout << "Mode: " << (displayMode == 'l' ? "Blur + Quantize (cartoon)" : "Color") << std::endl;
         }
     }
 

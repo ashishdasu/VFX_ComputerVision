@@ -107,4 +107,25 @@ int sobelY3x3(cv::Mat &src, cv::Mat &dst);
  */
 int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
 
+/*
+ * Applies blur followed by color quantization for an artistic effect.
+ *
+ * Creates a cartoon-like or poster-like appearance by:
+ *   1. Blurring the image to reduce noise and detail
+ *   2. Quantizing colors to a fixed number of levels
+ *
+ * Quantization works by dividing the color space into buckets.
+ * For example, with levels=10, the range [0,255] is divided into 10 buckets
+ * of size 25 each. Each pixel color is rounded to the nearest bucket center.
+ *
+ * This creates flat color regions with distinct boundaries between them,
+ * giving the image a painted or illustrated look.
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output blurred and quantized image (CV_8UC3)
+ * levels: number of quantization levels per channel (e.g., 10)
+ * returns: 0 on success
+ */
+int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
+
 #endif

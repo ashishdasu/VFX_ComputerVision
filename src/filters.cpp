@@ -507,3 +507,68 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst) {
 
     return 0;
 }
+
+/*
+ * Applies blur and color quantization for an artistic effect.
+ *
+ * This function creates a cartoon-like or poster-art appearance by:
+ *   1. Blurring to smooth out noise and fine details
+ *   2. Reducing the number of distinct colors to a fixed set
+ *
+ * Color quantization works by dividing the [0, 255] range into discrete levels.
+ * For example, with levels=10:
+ *   - Bucket size = 255/10 = 25 (integer division)
+ *   - Original values map to: 0, 25, 50, 75, 100, 125, 150, 175, 200, 225
+ *
+ * Algorithm for quantization:
+ *   1. bucket_size = 255 / levels
+ *   2. bucket_index = pixel_value / bucket_size   (integer division)
+ *   3. quantized_value = bucket_index * bucket_size
+ *
+ * Example with levels=10:
+ *   - Value 127: bucket_index = 127/25 = 5, quantized = 5*25 = 125
+ *   - Value 60:  bucket_index = 60/25 = 2,  quantized = 2*25 = 50
+ *   - Value 240: bucket_index = 240/25 = 9, quantized = 9*25 = 225
+ *
+ * The blur step first smooths the image so that quantization creates
+ * larger uniform color regions rather than noisy speckled areas.
+ *
+ * src: input color image (CV_8UC3)
+ * dst: output blurred and quantized image (CV_8UC3)
+ * levels: number of quantization levels per channel (typical: 8-15)
+ * returns: 0 on success
+ */
+int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels) {
+    // Step 1: Blur the image to reduce noise and smooth details
+    cv::Mat blurred;
+    blur5x5_2(src, blurred);  // Use optimized separable blur
+
+    // Step 2: Quantize the blurred image
+    dst.create(src.size(), src.type());
+
+    // Calculate bucket size for quantization
+    int bucketSize = 255 / levels;
+
+    // Process each pixel
+    for (int i = 0; i < blurred.rows; i++) {
+        const cv::Vec3b *blurRow = blurred.ptr<cv::Vec3b>(i);
+        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+        for (int j = 0; j < blurred.cols; j++) {
+            // Quantize each channel independently
+            for (int c = 0; c < 3; c++) {
+                uchar originalValue = blurRow[j][c];
+
+                // Find which bucket this value falls into
+                int bucketIndex = originalValue / bucketSize;
+
+                // Map to the bucket's representative value
+                uchar quantizedValue = bucketIndex * bucketSize;
+
+                dstRow[j][c] = quantizedValue;
+            }
+        }
+    }
+
+    return 0;
+}
