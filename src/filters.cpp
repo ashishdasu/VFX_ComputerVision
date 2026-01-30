@@ -345,36 +345,11 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels) {
     return 0;
 }
 
-/*
- * Applies depth-based fog effect to create atmospheric depth.
- *
- * This function simulates fog in a scene using depth information from a depth map.
- * Objects farther from the camera (brighter in depth map) get more fog applied.
- *
- * The fog model uses exponential decay (physically accurate):
- *   fog_amount = 1 - exp(-depth_normalized * density)
- *
- * Where:
- *   depth_normalized = depth_value / 255.0  (normalize to [0, 1])
- *   density = how quickly fog accumulates (higher = denser fog)
- *
- * Final color blending:
- *   result = original * (1 - fog_amount) + fog_color * fog_amount
- *
- * Example with density=0.005:
- *   Close object (depth=50):  fog_amount = 1 - exp(-0.196 * 0.005) ≈ 0.001 (almost no fog)
- *   Far object (depth=255):   fog_amount = 1 - exp(-1.0 * 0.005) ≈ 0.005 (some fog)
- *
- * Note: This implementation uses a simplified linear model for computational efficiency:
- *   fog_amount = depth_normalized * density_factor
- *
- * src: input color image (CV_8UC3)
- * depth: depth map (CV_8UC1, brighter = farther)
- * dst: output image with fog (CV_8UC3)
- * density: fog density parameter (0.003-0.01 typical)
- * fogColor: color of the fog (B, G, R)
- * returns: 0 on success
- */
+// Depth-based fog - atmospheric effect using depth map from Depth Anything V2
+// Farther objects (brighter in depth map) get more fog applied
+// Uses linear fog model: fog_amount = (depth/255) * density, then blend with fog color
+// Physically accurate would be exponential (1 - exp(-depth*density)) but linear is faster and looks good
+// Typical density: 0.003-0.01 (lower = subtle fog, higher = dense fog)
 int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
                    float density, cv::Scalar fogColor) {
     // Create output image
@@ -425,7 +400,6 @@ int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
 int emboss(cv::Mat &src, cv::Mat &dst) {
     dst.create(src.size(), src.type());
 
-    int kernel[3][3] = {
     int kernel[3][3] = {
         {-2, -1,  0},
         {-1,  1,  1},
