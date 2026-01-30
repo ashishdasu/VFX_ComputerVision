@@ -14,8 +14,8 @@
 #include "filters.h"
 
 int main(int argc, char *argv[]) {
-    // Path to ONNX model (update this when you have the real model)
-    std::string modelPath = "../data/depth_anything_v2_vits.onnx";
+    // Path to ONNX model
+    const char *modelPath = "../data/model_fp16.onnx";
 
     std::cout << "Initializing Depth Anything V2 network..." << std::endl;
     std::cout << "Model path: " << modelPath << std::endl;
@@ -56,7 +56,11 @@ int main(int argc, char *argv[]) {
         }
 
         // Process frame with depth network
-        cv::Mat depthMap = depthNet.process(frame);
+        // Scale factor 0.5 = half size for faster processing
+        depthNet.set_input(frame, 0.5);
+
+        cv::Mat depthMap;
+        depthNet.run_network(depthMap, frame.size());
 
         // Convert depth map to 3-channel for display
         cv::Mat depthDisplay;

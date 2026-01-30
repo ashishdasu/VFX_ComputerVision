@@ -29,6 +29,8 @@
  *   'i' - toggle emboss effect (3D relief)
  *   'n' - toggle negative/invert effect
  *   'v' - toggle vignette effect
+ *   'p' - toggle portrait mode (face-aware blur)
+ *   'd' - toggle motion detection
  *   'f' - toggle face detection
  *
  * argc: number of command-line arguments (unused)
@@ -58,6 +60,7 @@ int main(int argc, char *argv[]) {
     // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia, 'b' = blur
     // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude, 'l' = blur+quantize
     // 'i' = emboss, 'n' = negative, 'v' = vignette
+    // 'p' = portrait mode, 'd' = motion detection
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
     bool faceDetectEnabled = false;  // Track if face detection is active
@@ -118,6 +121,19 @@ int main(int argc, char *argv[]) {
                 break;
             case 'v':  // Vignette effect
                 vignette(frame, displayFrame, 0.5f, 0.5f);  // 50% strength, 50% radius
+                break;
+            case 'p': {  // Portrait mode (face-aware blur)
+                // Detect faces first
+                cv::Mat grey;
+                cv::cvtColor(frame, grey, cv::COLOR_BGR2GRAY);
+                std::vector<cv::Rect> faces;
+                detectFaces(grey, faces);
+                // Apply portrait mode with detected faces
+                portraitMode(frame, faces, displayFrame, 21, 31);  // blur=21, feather=31
+                break;
+            }
+            case 'd':  // Motion detection
+                motionDetect(frame, displayFrame, 30);  // threshold=30, red highlight
                 break;
             default:   // Color (no effect)
                 displayFrame = frame.clone();
@@ -195,6 +211,14 @@ int main(int argc, char *argv[]) {
             // Toggle vignette
             displayMode = (displayMode == 'v') ? 'c' : 'v';
             std::cout << "Mode: " << (displayMode == 'v' ? "Vignette" : "Color") << std::endl;
+        } else if (key == 'p') {
+            // Toggle portrait mode
+            displayMode = (displayMode == 'p') ? 'c' : 'p';
+            std::cout << "Mode: " << (displayMode == 'p' ? "Portrait Mode (face blur)" : "Color") << std::endl;
+        } else if (key == 'd') {
+            // Toggle motion detection
+            displayMode = (displayMode == 'd') ? 'c' : 'd';
+            std::cout << "Mode: " << (displayMode == 'd' ? "Motion Detection" : "Color") << std::endl;
         } else if (key == 'f') {
             // Toggle face detection
             faceDetectEnabled = !faceDetectEnabled;

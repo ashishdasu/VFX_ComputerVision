@@ -211,4 +211,53 @@ int negative(cv::Mat &src, cv::Mat &dst);
  */
 int vignette(cv::Mat &src, cv::Mat &dst, float strength = 0.5, float radius = 0.5);
 
+/*
+ * Applies portrait mode effect: keeps faces in focus, blurs background.
+ *
+ * Creates iPhone-style portrait mode by:
+ *   1. Detecting faces in the image
+ *   2. Blurring the entire frame
+ *   3. Creating a mask where face regions = 1, background = 0
+ *   4. Blending: sharp faces on blurred background
+ *
+ * The mask is feathered (gradual transition) to avoid hard edges around faces.
+ * Face regions are expanded slightly to include head/shoulders.
+ *
+ * src: input color image (CV_8UC3)
+ * faces: vector of face bounding boxes from face detection
+ * dst: output portrait mode image (CV_8UC3)
+ * blurAmount: amount of background blur (default: 15, must be odd)
+ * featherRadius: smoothness of face edge transition (default: 30 pixels)
+ * returns: 0 on success
+ */
+int portraitMode(cv::Mat &src, std::vector<cv::Rect> &faces, cv::Mat &dst,
+                 int blurAmount = 15, int featherRadius = 30);
+
+/*
+ * Detects and highlights motion between consecutive video frames.
+ *
+ * Compares current frame with previous frame to detect movement:
+ *   1. Compute absolute difference between frames
+ *   2. Convert to greyscale and threshold
+ *   3. Dilate to fill gaps in motion regions
+ *   4. Overlay motion mask on original frame (highlight in color)
+ *
+ * Useful for:
+ *   - Security cameras (detect intruders)
+ *   - Activity detection (motion sensing)
+ *   - Gesture tracking
+ *
+ * This function maintains internal state (previous frame) using static variables,
+ * so it should only be called from one video stream at a time.
+ *
+ * currentFrame: current video frame (CV_8UC3)
+ * dst: output with motion highlighted (CV_8UC3)
+ * threshold: sensitivity (0-255, lower = more sensitive, default: 30)
+ * highlightColor: color to highlight motion regions (default: red)
+ * returns: 0 on success
+ */
+int motionDetect(cv::Mat &currentFrame, cv::Mat &dst,
+                 int threshold = 30,
+                 cv::Scalar highlightColor = cv::Scalar(0, 0, 255));
+
 #endif
