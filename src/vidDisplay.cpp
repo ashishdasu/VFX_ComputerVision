@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include "filters.h"
+#include "faceDetect.h"
 
 /*
  * Main function
@@ -25,6 +26,7 @@
  *   'y' - toggle Sobel Y (horizontal edges)
  *   'm' - toggle gradient magnitude (all edges)
  *   'l' - toggle blur+quantize (cartoon effect)
+ *   'f' - toggle face detection
  *
  * argc: number of command-line arguments (unused)
  * argv: array of argument strings (unused)
@@ -54,6 +56,7 @@ int main(int argc, char *argv[]) {
     // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude, 'l' = blur+quantize
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
+    bool faceDetectEnabled = false;  // Track if face detection is active
 
     // Main capture loop
     for (;;) {
@@ -108,6 +111,20 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
+        // Apply face detection if enabled
+        if (faceDetectEnabled) {
+            // Convert to greyscale for face detection
+            cv::Mat grey;
+            cv::cvtColor(displayFrame, grey, cv::COLOR_BGR2GRAY);
+
+            // Detect faces
+            std::vector<cv::Rect> faces;
+            detectFaces(grey, faces);
+
+            // Draw boxes on the display frame
+            drawBoxes(displayFrame, faces);
+        }
+
         cv::imshow("Video", displayFrame);
 
         // Check for keypress (wait 10ms)
@@ -153,6 +170,10 @@ int main(int argc, char *argv[]) {
             // Toggle blur and quantize
             displayMode = (displayMode == 'l') ? 'c' : 'l';
             std::cout << "Mode: " << (displayMode == 'l' ? "Blur + Quantize (cartoon)" : "Color") << std::endl;
+        } else if (key == 'f') {
+            // Toggle face detection
+            faceDetectEnabled = !faceDetectEnabled;
+            std::cout << "Face Detection: " << (faceDetectEnabled ? "ON" : "OFF") << std::endl;
         }
     }
 

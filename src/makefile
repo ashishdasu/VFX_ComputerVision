@@ -28,7 +28,7 @@ LDLIBS = $(OPENCV_LIBS) $(FRAMEWORKS) $(ONNX_LIBS)
 BINDIR = ../bin
 
 # Targets
-vid: vidDisplay.o filters.o
+vid: vidDisplay.o filters.o faceDetect.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 face: faceDetect.o filters.o
