@@ -47,6 +47,11 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // Request 4K resolution (3840x2160)
+    // Note: Camera must support 4K, otherwise it will use closest available resolution
+    capdev->set(cv::CAP_PROP_FRAME_WIDTH, 3840);
+    capdev->set(cv::CAP_PROP_FRAME_HEIGHT, 2160);
+
     // Get and display camera properties
     cv::Size refS((int)capdev->get(cv::CAP_PROP_FRAME_WIDTH),
                   (int)capdev->get(cv::CAP_PROP_FRAME_HEIGHT));
