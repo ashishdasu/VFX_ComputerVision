@@ -8,7 +8,7 @@ Report drive link: https://drive.google.com/file/d/1jJ1MBBd-wb1weq9kyVxRMrzClRPq
 
 ## Video Demonstrations
 - **Face Detection:** https://drive.google.com/file/d/1YEfiqKqx2T9_IYnf2Hp97H1clbnEeQTy/view?usp=share_link 
-- **Depth Effects (Task 11):** https://drive.google.com/file/d/1jVT1INdXstnupqqymAXq9MvHdvNepiMJ/view?usp=share_link
+- **Depth Effects:** https://drive.google.com/file/d/1jVT1INdXstnupqqymAXq9MvHdvNepiMJ/view?usp=share_link
 
 ## Source Files
 
