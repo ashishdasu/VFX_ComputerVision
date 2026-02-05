@@ -1,11 +1,10 @@
-# CS5330 Project 1: Video Special Effects
+# Video Special Effects
 
 **Author:** Ashish Dasu
 **Date:** January 2026
 
 ##
-Report was too large to submit on gradescope. Here is drive link: https://drive.google.com/file/d/1jJ1MBBd-wb1weq9kyVxRMrzClRPqnn7o/view?usp=share_link
-
+Report drive link: https://drive.google.com/file/d/1jJ1MBBd-wb1weq9kyVxRMrzClRPqnn7o/view?usp=share_link
 
 ## Video Demonstrations
 - **Face Detection:** https://drive.google.com/file/d/1YEfiqKqx2T9_IYnf2Hp97H1clbnEeQTy/view?usp=share_link 
@@ -28,10 +27,3 @@ Report was too large to submit on gradescope. Here is drive link: https://drive.
 **src/blurTiming.cpp** - Performance benchmark comparing naive vs. separable blur implementations
 
 **include/filters.h** - Header file declaring all filter functions
-
-## Use of LLM Assistance
-Used LLM for report template, stitching and labeling cathedral photos, and formatting comments (function descriptions). Also, for help understanding general concepts for the project.
-
-
-## Additional Note
-Got the flu pretty bad for a week. This, unfortunately, meant I could not complete the project within the extension task deadline. Will make sure I have enough time to be more thorough for the next project. Will also use less templating assistance.
