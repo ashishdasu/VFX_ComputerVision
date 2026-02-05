@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
     std::cout << "  - blur_naive.png" << std::endl;
     std::cout << "  - blur_separable.png" << std::endl;
 
-    // Display images (optional - comment out if running headless)
     cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
     cv::namedWindow("Naive Blur", cv::WINDOW_AUTOSIZE);
     cv::namedWindow("Separable Blur", cv::WINDOW_AUTOSIZE);

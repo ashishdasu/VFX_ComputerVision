@@ -1,17 +1,16 @@
 /* Ashish Dasu
  * January 2026
  *
- * Capture and display live video from webcam with various filter effects.
- * Keypresses activate different filters and functionality.
+ * Capture and display live webcam feed with filter effects.
  */
 
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <cstdio>
 #include "filters.h"
 #include "faceDetect.h"
 
 /*
- * Main function
  * Opens the default video device, captures frames in a loop, and displays them.
  * Different keypresses activate various image processing effects.
  *
@@ -29,12 +28,8 @@
  *   'i' - toggle emboss effect (3D relief)
  *   'n' - toggle negative/invert effect
  *   'v' - toggle vignette effect
- *   'p' - toggle portrait mode (face-aware blur)
- *   'd' - toggle motion detection
  *   'f' - toggle face detection
  *
- * argc: number of command-line arguments (unused)
- * argv: array of argument strings (unused)
  * returns: 0 on success, -1 on error
  */
 int main(int argc, char *argv[]) {
@@ -48,7 +43,6 @@ int main(int argc, char *argv[]) {
     }
 
     // Request 4K resolution (3840x2160)
-    // Note: Camera must support 4K, otherwise it will use closest available resolution
     capdev->set(cv::CAP_PROP_FRAME_WIDTH, 3840);
     capdev->set(cv::CAP_PROP_FRAME_HEIGHT, 2160);
 
@@ -65,18 +59,41 @@ int main(int argc, char *argv[]) {
     // 'c' = color (default), 'g' = OpenCV grey, 'h' = custom grey, 'e' = sepia, 'b' = blur
     // 'x' = Sobel X, 'y' = Sobel Y, 'm' = magnitude, 'l' = blur+quantize
     // 'i' = emboss, 'n' = negative, 'v' = vignette
-    // 'p' = portrait mode, 'd' = motion detection
     char displayMode = 'c';
     int savedCount = 0;      // Counter for saved images
     bool faceDetectEnabled = false;  // Track if face detection is active
 
+    // Find the next available frame number by checking existing files
+    FILE* testFile;
+    while (true) {
+        char filename[256];
+        sprintf(filename, "../report/saved_frame_%d.png", savedCount);
+        testFile = fopen(filename, "r");
+        if (testFile == NULL) {
+            break;  // File doesn't exist, use this number
+        }
+        fclose(testFile);
+        savedCount++;
+    }
+    std::cout << "Next frame will be saved as: saved_frame_" << savedCount << ".png" << std::endl;
+
     // Main capture loop
+    // Crash protection--making sure not too many empty frames
+    int emptyFrameCount = 0;
     for (;;) {
         *capdev >> frame;  // Capture a new frame
         if (frame.empty()) {
-            std::cerr << "Frame is empty" << std::endl;
-            break;
+            emptyFrameCount++;
+            if (emptyFrameCount > 30) {
+                std::cerr << "Too many empty frames, exiting" << std::endl;
+                break;
+            }
+            continue;  // Skip this iteration, try again
         }
+        emptyFrameCount = 0;  // Reset counter on successful frame
+
+        // Mirror the frame horizontally (like looking in a mirror)
+        cv::flip(frame, frame, 1);
 
         // Apply the current display mode effect
         switch (displayMode) {
@@ -127,19 +144,6 @@ int main(int argc, char *argv[]) {
             case 'v':  // Vignette effect
                 vignette(frame, displayFrame, 0.5f, 0.5f);  // 50% strength, 50% radius
                 break;
-            case 'p': {  // Portrait mode (face-aware blur)
-                // Detect faces first
-                cv::Mat grey;
-                cv::cvtColor(frame, grey, cv::COLOR_BGR2GRAY);
-                std::vector<cv::Rect> faces;
-                detectFaces(grey, faces);
-                // Apply portrait mode with detected faces
-                portraitMode(frame, faces, displayFrame, 21, 31);  // blur=21, feather=31
-                break;
-            }
-            case 'd':  // Motion detection
-                motionDetect(frame, displayFrame, 30);  // threshold=30, red highlight
-                break;
             default:   // Color (no effect)
                 displayFrame = frame.clone();
                 break;
@@ -168,10 +172,14 @@ int main(int argc, char *argv[]) {
             // Quit
             break;
         } else if (key == 's') {
-            // Save current frame
-            std::string filename = "saved_frame_" + std::to_string(savedCount++) + ".png";
+            // Save current frame to report folder
+            std::string filename = "../report/saved_frame_" + std::to_string(savedCount++) + ".png";
             cv::imwrite(filename, displayFrame);
             std::cout << "Saved: " << filename << std::endl;
+        } else if (key == '-') {
+            // Decrement frame counter (in case you want to overwrite)
+            if (savedCount > 0) savedCount--;
+            std::cout << "Frame counter decremented to: " << savedCount << std::endl;
         } else if (key == 'g') {
             // Toggle OpenCV greyscale
             displayMode = (displayMode == 'g') ? 'c' : 'g';
@@ -216,14 +224,6 @@ int main(int argc, char *argv[]) {
             // Toggle vignette
             displayMode = (displayMode == 'v') ? 'c' : 'v';
             std::cout << "Mode: " << (displayMode == 'v' ? "Vignette" : "Color") << std::endl;
-        } else if (key == 'p') {
-            // Toggle portrait mode
-            displayMode = (displayMode == 'p') ? 'c' : 'p';
-            std::cout << "Mode: " << (displayMode == 'p' ? "Portrait Mode (face blur)" : "Color") << std::endl;
-        } else if (key == 'd') {
-            // Toggle motion detection
-            displayMode = (displayMode == 'd') ? 'c' : 'd';
-            std::cout << "Mode: " << (displayMode == 'd' ? "Motion Detection" : "Color") << std::endl;
         } else if (key == 'f') {
             // Toggle face detection
             faceDetectEnabled = !faceDetectEnabled;
@@ -231,6 +231,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Properly release the camera before deleting
+    capdev->release();
     delete capdev;
+
+    std::cout << "Camera released successfully" << std::endl;
     return 0;
 }

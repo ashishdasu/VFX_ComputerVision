@@ -1,6 +1,6 @@
 // Ashish Dasu
 // January 2026
-// Purpose: Header file for image filter functions used in video processing.
+// Header file for image filter functions used in video processing.
 
 #ifndef FILTERS_H
 #define FILTERS_H
@@ -129,24 +129,38 @@ int magnitude(cv::Mat &sx, cv::Mat &sy, cv::Mat &dst);
 int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels);
 
 /*
- * Applies a depth-based fog effect using depth map information.
+ * Creates topographic contour lines at regular depth intervals.
  *
- * Creates atmospheric fog that increases with distance from the camera.
- * Uses exponential fog model: fog_amount = 1 - exp(-depth * density)
+ * Like elevation contours on a hiking map - draws lines connecting points
+ * at the same depth. Divides the depth range into equal intervals and draws
+ * boundary lines between them.
  *
- * The fog blends the original color with a fog color based on depth:
- *   final_color = original_color * (1 - fog) + fog_color * fog
+ * Creates a classic topographic/cartographic visualization showing depth structure.
  *
  * src: input color image (CV_8UC3)
  * depth: depth map (CV_8UC1, greyscale where brighter = farther)
- * dst: output image with fog applied (CV_8UC3)
- * density: fog density parameter (typical: 0.003 - 0.01)
- * fogColor: color of the fog (default: light grey/white)
+ * dst: output image with contour lines overlaid (CV_8UC3)
+ * numLevels: number of depth levels to create (default: 10)
  * returns: 0 on success
  */
-int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
-                   float density = 0.005,
-                   cv::Scalar fogColor = cv::Scalar(200, 200, 200));
+int depthContours(cv::Mat &src, cv::Mat &depth, cv::Mat &dst, int numLevels = 10);
+
+/*
+ * Applies color gradient based on depth values.
+ *
+ * Maps depth values to a color spectrum:
+ *   - Close objects (dark in depth map) → warm colors (red/orange)
+ *   - Far objects (bright in depth map) → cool colors (blue/purple)
+ *
+ * Blends the color map with the original image to create an artistic
+ * depth-aware visualization.
+ *
+ * src: input color image (CV_8UC3)
+ * depth: depth map (CV_8UC1, greyscale where brighter = farther)
+ * dst: output image with depth-based coloring (CV_8UC3)
+ * returns: 0 on success
+ */
+int colorByDepth(cv::Mat &src, cv::Mat &depth, cv::Mat &dst);
 
 /*
  * Applies an emboss effect to create a 3D raised surface appearance.
@@ -210,54 +224,5 @@ int negative(cv::Mat &src, cv::Mat &dst);
  * returns: 0 on success
  */
 int vignette(cv::Mat &src, cv::Mat &dst, float strength = 0.5, float radius = 0.5);
-
-/*
- * Applies portrait mode effect: keeps faces in focus, blurs background.
- *
- * Creates iPhone-style portrait mode by:
- *   1. Detecting faces in the image
- *   2. Blurring the entire frame
- *   3. Creating a mask where face regions = 1, background = 0
- *   4. Blending: sharp faces on blurred background
- *
- * The mask is feathered (gradual transition) to avoid hard edges around faces.
- * Face regions are expanded slightly to include head/shoulders.
- *
- * src: input color image (CV_8UC3)
- * faces: vector of face bounding boxes from face detection
- * dst: output portrait mode image (CV_8UC3)
- * blurAmount: amount of background blur (default: 15, must be odd)
- * featherRadius: smoothness of face edge transition (default: 30 pixels)
- * returns: 0 on success
- */
-int portraitMode(cv::Mat &src, std::vector<cv::Rect> &faces, cv::Mat &dst,
-                 int blurAmount = 15, int featherRadius = 30);
-
-/*
- * Detects and highlights motion between consecutive video frames.
- *
- * Compares current frame with previous frame to detect movement:
- *   1. Compute absolute difference between frames
- *   2. Convert to greyscale and threshold
- *   3. Dilate to fill gaps in motion regions
- *   4. Overlay motion mask on original frame (highlight in color)
- *
- * Useful for:
- *   - Security cameras (detect intruders)
- *   - Activity detection (motion sensing)
- *   - Gesture tracking
- *
- * This function maintains internal state (previous frame) using static variables,
- * so it should only be called from one video stream at a time.
- *
- * currentFrame: current video frame (CV_8UC3)
- * dst: output with motion highlighted (CV_8UC3)
- * threshold: sensitivity (0-255, lower = more sensitive, default: 30)
- * highlightColor: color to highlight motion regions (default: red)
- * returns: 0 on success
- */
-int motionDetect(cv::Mat &currentFrame, cv::Mat &dst,
-                 int threshold = 30,
-                 cv::Scalar highlightColor = cv::Scalar(0, 0, 255));
 
 #endif

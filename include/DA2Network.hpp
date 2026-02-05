@@ -44,8 +44,10 @@ public:
     std::strncpy( input_names_, "pixel_values", 255 ); // default values for the network mode_fp16.onnx
     std::strncpy( output_names_, "predicted_depth", 255 );
 
-    // set up the Ort session
-    this->session_ = new Ort::Session(env, network_path, Ort::SessionOptions{nullptr});
+    // set up the Ort session with optimizations disabled for compatibility
+    Ort::SessionOptions session_options;
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_DISABLE_ALL);
+    this->session_ = new Ort::Session(env, network_path, session_options);
   }
 
   // constructor with both the network path and the layer names
@@ -54,8 +56,10 @@ public:
     std::strncpy( input_names_, input_layer_name, 255 );
     std::strncpy( output_names_, output_layer_name, 255 );
 
-    // set up the Ort session
-    this->session_ = new Ort::Session(env, network_path, Ort::SessionOptions{nullptr});
+    // set up the Ort session with optimizations disabled for compatibility
+    Ort::SessionOptions session_options;
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_DISABLE_ALL);
+    this->session_ = new Ort::Session(env, network_path, session_options);
   }
 
   // deconstructor

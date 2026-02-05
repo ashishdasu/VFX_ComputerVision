@@ -1,11 +1,8 @@
 /* Ashish Dasu
  * January 2026
  *
- * Demonstration program for Depth Anything V2 network.
  * Captures video and applies depth-based effects.
  *
- * NOTE: Requires instructor-provided DA2Network.hpp and ONNX model file.
- * Replace the placeholder DA2Network.hpp in include/ with the real version.
  */
 
 #include <opencv2/opencv.hpp>
@@ -30,21 +27,33 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // Request 800x600 resolution for balance of quality and performance
+    capdev.set(cv::CAP_PROP_FRAME_WIDTH, 800);
+    capdev.set(cv::CAP_PROP_FRAME_HEIGHT, 600);
+
     cv::Size refS((int)capdev.get(cv::CAP_PROP_FRAME_WIDTH),
                   (int)capdev.get(cv::CAP_PROP_FRAME_HEIGHT));
     std::cout << "Video size: " << refS.width << " x " << refS.height << std::endl;
 
-    cv::namedWindow("Original", cv::WINDOW_AUTOSIZE);
-    cv::namedWindow("Depth Map", cv::WINDOW_AUTOSIZE);
-    cv::namedWindow("Depth Fog", cv::WINDOW_AUTOSIZE);
+    // Warm up the camera - discard first few frames
+    cv::Mat warmup;
+    for (int i = 0; i < 10; i++) {
+        capdev >> warmup;
+    }
+
+    cv::namedWindow("Depth Demo", cv::WINDOW_AUTOSIZE);
 
     cv::Mat frame;
-    char displayMode = 'd';  // 'd' = depth view, 'f' = fog effect
+    cv::Mat depthMap;  // Reuse depth map across frames
+    char displayMode = 'o';  // 'o' = original, 'd' = depth, 'c' = contours, 'r' = rainbow color
     int savedCount = 0;
+    int frameCount = 0;  // For frame skipping
 
     std::cout << "\nControls:" << std::endl;
+    std::cout << "  'o' - Show original video" << std::endl;
     std::cout << "  'd' - Show depth map" << std::endl;
-    std::cout << "  'f' - Show fog effect" << std::endl;
+    std::cout << "  'c' - Show depth contours" << std::endl;
+    std::cout << "  'r' - Show rainbow depth coloring" << std::endl;
     std::cout << "  's' - Save current frame" << std::endl;
     std::cout << "  'q' - Quit" << std::endl;
 
@@ -55,25 +64,29 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        // Process frame with depth network
-        // Scale factor 0.5 = half size for faster processing
-        depthNet.set_input(frame, 0.5);
+        // Process depth network only every 2 frames for performance
+        frameCount++;
+        if (frameCount % 2 == 0) {
+            // Scale factor 0.25 = 1/4 size for faster processing
+            depthNet.set_input(frame, 0.25);
+            depthNet.run_network(depthMap, frame.size());
+        }
 
-        cv::Mat depthMap;
-        depthNet.run_network(depthMap, frame.size());
-
-        // Convert depth map to 3-channel for display
-        cv::Mat depthDisplay;
-        cv::cvtColor(depthMap, depthDisplay, cv::COLOR_GRAY2BGR);
-
-        // Apply depth fog effect
-        cv::Mat fogResult;
-        applyDepthFog(frame, depthMap, fogResult, 0.005f);
-
-        // Display based on mode
-        cv::imshow("Original", frame);
-        cv::imshow("Depth Map", depthDisplay);
-        cv::imshow("Depth Fog", fogResult);
+        // Display based on current mode (only compute what we need)
+        cv::Mat displayFrame;
+        if (depthMap.empty()) {
+            // First frame, depth not ready yet
+            displayFrame = frame;
+        } else if (displayMode == 'd') {
+            cv::cvtColor(depthMap, displayFrame, cv::COLOR_GRAY2BGR);
+        } else if (displayMode == 'c') {
+            depthContours(frame, depthMap, displayFrame, 10);
+        } else if (displayMode == 'r') {
+            colorByDepth(frame, depthMap, displayFrame);
+        } else {
+            displayFrame = frame;
+        }
+        cv::imshow("Depth Demo", displayFrame);
 
         // Check for keypress
         char key = cv::waitKey(10);
@@ -81,19 +94,23 @@ int main(int argc, char *argv[]) {
         if (key == 'q') {
             break;
         } else if (key == 's') {
-            // Save all three views
-            std::string baseName = "depth_" + std::to_string(savedCount);
-            cv::imwrite(baseName + "_original.png", frame);
-            cv::imwrite(baseName + "_depth.png", depthDisplay);
-            cv::imwrite(baseName + "_fog.png", fogResult);
-            std::cout << "Saved: " << baseName << "_*.png" << std::endl;
+            // Save current display only
+            std::string filename = "../report/depth_" + std::to_string(savedCount) + ".png";
+            cv::imwrite(filename, displayFrame);
+            std::cout << "Saved: " << filename << std::endl;
             savedCount++;
+        } else if (key == 'o') {
+            displayMode = 'o';
+            std::cout << "Mode: Original" << std::endl;
         } else if (key == 'd') {
             displayMode = 'd';
             std::cout << "Mode: Depth Map" << std::endl;
-        } else if (key == 'f') {
-            displayMode = 'f';
-            std::cout << "Mode: Fog Effect" << std::endl;
+        } else if (key == 'c') {
+            displayMode = 'c';
+            std::cout << "Mode: Depth Contours" << std::endl;
+        } else if (key == 'r') {
+            displayMode = 'r';
+            std::cout << "Mode: Rainbow Color by Depth" << std::endl;
         }
     }
 

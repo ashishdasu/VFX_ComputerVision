@@ -1,6 +1,6 @@
 // Ashish Dasu
 // January 2026
-// Purpose: Implementation of image filter functions for video processing effects.
+// Implementation of image filter functions for video processing effects.
 
 #include "filters.h"
 
@@ -350,12 +350,12 @@ int blurQuantize(cv::Mat &src, cv::Mat &dst, int levels) {
 // Uses linear fog model: fog_amount = (depth/255) * density, then blend with fog color
 // Physically accurate would be exponential (1 - exp(-depth*density)) but linear is faster and looks good
 // Typical density: 0.003-0.01 (lower = subtle fog, higher = dense fog)
-int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
-                   float density, cv::Scalar fogColor) {
-    // Create output image
-    dst.create(src.size(), src.type());
+// Topographic depth contours - like elevation lines on a map
+// Draws contour lines at regular depth intervals
+int depthContours(cv::Mat &src, cv::Mat &depth, cv::Mat &dst, int numLevels) {
+    dst = src.clone();
 
-    // Convert depth to same size as src if needed
+    // Resize depth if needed
     cv::Mat depthResized;
     if (depth.size() != src.size()) {
         cv::resize(depth, depthResized, src.size());
@@ -363,30 +363,76 @@ int applyDepthFog(cv::Mat &src, cv::Mat &depth, cv::Mat &dst,
         depthResized = depth;
     }
 
-    // Process each pixel
+    // Create contour lines at regular depth intervals
+    int levelStep = 255 / numLevels;  // Divide depth range into levels
+
+    for (int level = 1; level < numLevels; level++) {
+        int depthThreshold = level * levelStep;
+
+        // Find pixels near this depth threshold
+        for (int i = 1; i < depthResized.rows - 1; i++) {
+            const uchar *depthRow = depthResized.ptr<uchar>(i);
+            cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
+
+            for (int j = 1; j < depthResized.cols - 1; j++) {
+                int currentDepth = depthRow[j];
+
+                // Check if any neighbor crosses this depth threshold
+                // (creates contour line at depth boundaries)
+                bool onContour = false;
+                for (int di = -1; di <= 1 && !onContour; di++) {
+                    for (int dj = -1; dj <= 1 && !onContour; dj++) {
+                        if (di == 0 && dj == 0) continue;
+
+                        int neighborDepth = depthResized.ptr<uchar>(i + di)[j + dj];
+
+                        // If current and neighbor are on opposite sides of threshold
+                        if ((currentDepth < depthThreshold && neighborDepth >= depthThreshold) ||
+                            (currentDepth >= depthThreshold && neighborDepth < depthThreshold)) {
+                            onContour = true;
+                        }
+                    }
+                }
+
+                if (onContour) {
+                    // Draw contour line in dark blue
+                    dstRow[j] = cv::Vec3b(139, 69, 19);  // Brown contour lines
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+// Color by depth - apply color gradient based on distance
+// Near objects = warm colors (red/orange), far objects = cool colors (blue/purple)
+int colorByDepth(cv::Mat &src, cv::Mat &depth, cv::Mat &dst) {
+    dst.create(src.size(), src.type());
+
+    // Resize depth if needed
+    cv::Mat depthResized;
+    if (depth.size() != src.size()) {
+        cv::resize(depth, depthResized, src.size());
+    } else {
+        depthResized = depth;
+    }
+
+    // Apply color map: use depth value to create color gradient
+    cv::Mat depthColor;
+    cv::applyColorMap(depthResized, depthColor, cv::COLORMAP_JET);
+    // JET colormap: blue (close) -> cyan -> green -> yellow -> red (far)
+
+    // Blend original image with depth color (50/50 mix)
     for (int i = 0; i < src.rows; i++) {
         const cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i);
-        const uchar *depthRow = depthResized.ptr<uchar>(i);
+        const cv::Vec3b *colorRow = depthColor.ptr<cv::Vec3b>(i);
         cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
 
         for (int j = 0; j < src.cols; j++) {
-            // Get depth value [0-255] and normalize to [0-1]
-            float depthNorm = depthRow[j] / 255.0f;
-
-            // Calculate fog amount using exponential model
-            // fog = 1 - exp(-depth * density)
-            // Simplified linear model for efficiency: fog = depth * density_factor
-            float fogAmount = depthNorm * density * 100.0f;  // Scale for visibility
-            if (fogAmount > 1.0f) fogAmount = 1.0f;  // Clamp to [0, 1]
-
-            // Blend original color with fog color
-            // result = original * (1 - fog) + fog_color * fog
+            // Blend original with depth color
             for (int c = 0; c < 3; c++) {
-                float originalColor = srcRow[j][c];
-                float fog = fogColor[c];
-                float blended = originalColor * (1.0f - fogAmount) + fog * fogAmount;
-
-                dstRow[j][c] = cv::saturate_cast<uchar>(blended);
+                dstRow[j][c] = (srcRow[j][c] * 0.5 + colorRow[j][c] * 0.5);
             }
         }
     }
@@ -524,123 +570,3 @@ int vignette(cv::Mat &src, cv::Mat &dst, float strength, float radius) {
 // Portrait mode - iPhone-style effect with sharp faces and blurred background
 // Blur whole image, create mask for faces, then blend sharp version back on face regions
 // Expand face boxes by 30% and feather mask for smooth transitions (no hard edges)
-int portraitMode(cv::Mat &src, std::vector<cv::Rect> &faces, cv::Mat &dst,
-                 int blurAmount, int featherRadius) {
-    dst.create(src.size(), src.type());
-
-    if (faces.empty()) {
-        src.copyTo(dst);
-        return 0;
-    }
-
-    if (blurAmount % 2 == 0) blurAmount++;
-
-    // Step 1: Blur the entire image (this will be the background)
-    cv::Mat blurred;
-    cv::GaussianBlur(src, blurred, cv::Size(blurAmount, blurAmount), 0);
-
-    // Step 2: Create a binary mask where faces = 255 (keep sharp), background = 0 (blur)
-    cv::Mat mask = cv::Mat::zeros(src.size(), CV_8UC1);
-
-    for (const auto &face : faces) {
-        // Expand face region by 30% to include head/shoulders
-        int expandX = face.width * 0.3;
-        int expandY = face.height * 0.4;  // More vertical expansion for head
-
-        cv::Rect expandedFace(
-            std::max(0, face.x - expandX/2),
-            std::max(0, face.y - expandY),
-            std::min(src.cols - face.x + expandX/2, face.width + expandX),
-            std::min(src.rows - face.y, face.height + expandY)
-        );
-
-        // Fill the expanded face region with white (255 = keep sharp)
-        cv::rectangle(mask, expandedFace, cv::Scalar(255), -1);  // -1 = filled
-    }
-
-    // Step 3: Feather the mask (blur it) for smooth transitions
-    // This avoids hard edges around faces
-    if (featherRadius > 0) {
-        if (featherRadius % 2 == 0) featherRadius++;  // Must be odd
-        cv::GaussianBlur(mask, mask, cv::Size(featherRadius, featherRadius), 0);
-    }
-
-    // Step 4: Blend sharp original (faces) with blurred background
-    // Formula: result = original * (mask/255) + blurred * (1 - mask/255)
-    for (int i = 0; i < src.rows; i++) {
-        const cv::Vec3b *srcRow = src.ptr<cv::Vec3b>(i);
-        const cv::Vec3b *blurRow = blurred.ptr<cv::Vec3b>(i);
-        const uchar *maskRow = mask.ptr<uchar>(i);
-        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
-
-        for (int j = 0; j < src.cols; j++) {
-            // Normalize mask value to [0, 1]
-            float maskValue = maskRow[j] / 255.0f;
-
-            // Blend: sharp where mask is bright, blurred where mask is dark
-            for (int c = 0; c < 3; c++) {
-                float sharp = srcRow[j][c];
-                float blur = blurRow[j][c];
-                float blended = sharp * maskValue + blur * (1.0f - maskValue);
-                dstRow[j][c] = cv::saturate_cast<uchar>(blended);
-            }
-        }
-    }
-
-    return 0;
-}
-
-// Motion detection - highlights moving regions by comparing consecutive frames
-// Compute difference from previous frame, threshold, dilate to fill gaps, then overlay highlight
-// Uses static variable to remember previous frame between calls
-int motionDetect(cv::Mat &currentFrame, cv::Mat &dst, int threshold, cv::Scalar highlightColor) {
-    static cv::Mat previousFrame;
-    dst.create(currentFrame.size(), currentFrame.type());
-
-    // On first call, no previous frame exists yet
-    if (previousFrame.empty()) {
-        // Just copy current frame to output (no motion to detect)
-        currentFrame.copyTo(dst);
-        // Save current frame for next time
-        currentFrame.copyTo(previousFrame);
-        return 0;
-    }
-
-    // Step 1: Compute absolute difference between frames
-    cv::Mat diff;
-    cv::absdiff(currentFrame, previousFrame, diff);
-
-    // Step 2: Convert to greyscale (easier to threshold)
-    cv::Mat greyDiff;
-    cv::cvtColor(diff, greyDiff, cv::COLOR_BGR2GRAY);
-
-    // Step 3: Threshold to binary (motion = white, no motion = black)
-    cv::Mat motionMask;
-    cv::threshold(greyDiff, motionMask, threshold, 255, cv::THRESH_BINARY);
-
-    // Step 4: Dilate to fill in small gaps (makes motion regions more connected)
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::dilate(motionMask, motionMask, kernel);
-
-    // Step 5: Create output by overlaying highlight color on motion regions
-    currentFrame.copyTo(dst);
-
-    for (int i = 0; i < dst.rows; i++) {
-        cv::Vec3b *dstRow = dst.ptr<cv::Vec3b>(i);
-        const uchar *maskRow = motionMask.ptr<uchar>(i);
-
-        for (int j = 0; j < dst.cols; j++) {
-            if (maskRow[j] > 0) {  // Motion detected at this pixel
-                // Blend highlight color with original (50% mix for semi-transparent effect)
-                dstRow[j][0] = cv::saturate_cast<uchar>(dstRow[j][0] * 0.5 + highlightColor[0] * 0.5);
-                dstRow[j][1] = cv::saturate_cast<uchar>(dstRow[j][1] * 0.5 + highlightColor[1] * 0.5);
-                dstRow[j][2] = cv::saturate_cast<uchar>(dstRow[j][2] * 0.5 + highlightColor[2] * 0.5);
-            }
-        }
-    }
-
-    // Save current frame for next call
-    currentFrame.copyTo(previousFrame);
-
-    return 0;
-}

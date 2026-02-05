@@ -1,18 +1,15 @@
 // Ashish Dasu
 // January 2026
-// Purpose: Read an image from a file, display it in a window, and wait for user input.
-//          Press 'q' to quit the program.
+// Read an image from a file, display it in a window, and wait for input.
 
 #include <opencv2/opencv.hpp>
 #include <iostream>
 
 /*
- * Main function
  * Reads an image file specified as a command-line argument and displays it.
  * The program enters a loop waiting for keypresses until 'q' is pressed.
  *
- * argc: number of command-line arguments
- * argv: array of argument strings, argv[1] should be the image path
+ * argv[1] should be the image path
  * returns: 0 on success, -1 on error
  */
 int main(int argc, char *argv[]) {

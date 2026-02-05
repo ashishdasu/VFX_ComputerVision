@@ -43,5 +43,11 @@ depthDemo: depthDemo.o filters.o
 blurTiming: blurTiming.o filters.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
+processSobel: processSobel.o filters.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(OPENCV_LIBS) $(FRAMEWORKS)
+
+processBlurQuantize: processBlurQuantize.o filters.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(OPENCV_LIBS) $(FRAMEWORKS)
+
 clean:
 	rm -f *.o *~
