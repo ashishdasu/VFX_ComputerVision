@@ -12,11 +12,11 @@ Report drive link: https://drive.google.com/file/d/1jJ1MBBd-wb1weq9kyVxRMrzClRPq
 
 ## Source Files
 
-**src/imgDisplay.cpp** - Reads and displays a static image from file (Task 1)
+**src/imgDisplay.cpp** - Reads and displays a static image from file
 
-**src/vidDisplay.cpp** - Main video filter application with real-time effects controlled by keypresses (Tasks 2-10, 12)
+**src/vidDisplay.cpp** - Main video filter application with real-time effects controlled by keypresses
 
-**src/depthDemo.cpp** - Standalone depth estimation demo using Depth Anything V2 neural network (Task 11)
+**src/depthDemo.cpp** - Standalone depth estimation demo using Depth Anything V2 neural network
 
 **src/filters.cpp** - Implements all filter functions (greyscale, sepia, blur, sobel, face detection, depth effects, etc.)
 
